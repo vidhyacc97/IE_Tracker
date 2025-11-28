@@ -1,17 +1,25 @@
 
 import React, { useMemo, useState } from 'react';
-import { SaleEntry } from '../../types';
+import { SaleEntry, MenuItem } from '../../types';
 import { Card } from '../ui/Card';
 import { formatCurrency } from '../../utils/format';
-import { TrendingUp, PieChart, Info, Calendar, List } from 'lucide-react';
+import { TrendingUp, PieChart, Info, Calendar, Edit2, Trash2, X, Save } from 'lucide-react';
 
 interface ReceivablesProps {
   sales: SaleEntry[];
+  menuItems?: MenuItem[]; // Optional for backward compatibility but needed for edit
+  onSave?: (sale: SaleEntry) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
 }
 
-export const Receivables: React.FC<ReceivablesProps> = ({ sales }) => {
+export const Receivables: React.FC<ReceivablesProps> = ({ sales, menuItems = [], onSave, onDelete }) => {
   const [viewMode, setViewMode] = useState<'monthly' | 'weekly' | 'daily'>('monthly');
   
+  // EDIT STATE
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
   // Helper to get Monday of the week
   const getWeekStart = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -76,7 +84,6 @@ export const Receivables: React.FC<ReceivablesProps> = ({ sales }) => {
     return [...sales].sort((a, b) => {
       const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
       if (dateDiff !== 0) return dateDiff;
-      // Secondary sort by creation time/ID (assuming ID has some chronological correlation or just specific order)
       return b.id.localeCompare(a.id);
     });
   }, [sales]);
@@ -85,6 +92,48 @@ export const Receivables: React.FC<ReceivablesProps> = ({ sales }) => {
   const totalSheroShare = sales.reduce((sum, s) => sum + s.totalSheroShare, 0);
 
   const activeData = viewMode === 'monthly' ? monthlyData : weeklyData;
+
+  // CRUD HANDLERS
+  const initiateEdit = (entry: SaleEntry) => {
+    setEditingId(entry.id);
+    setEditQty(entry.quantity.toString());
+    setEditNotes(entry.notes || '');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditQty('');
+    setEditNotes('');
+  };
+
+  const saveEdit = async (entry: SaleEntry) => {
+    if (!onSave) return;
+    
+    const newQty = parseInt(editQty) || 1;
+    
+    // Recalculate based on current menu item details if possible, or fallback to stored unit prices
+    // Ideally we look up the menu item to get current rates, OR we use the snapshot rates in the entry
+    // Using snapshot rates preserves history (if price changed yesterday, editing today shouldn't change rate)
+    // BUT usually user expects update. Let's use stored unit prices from the entry itself to preserve historical pricing.
+    
+    const updatedEntry: SaleEntry = {
+      ...entry,
+      quantity: newQty,
+      totalAmount: entry.unitPrice * newQty,
+      totalMyShare: entry.unitMyShare * newQty,
+      totalSheroShare: entry.unitSheroShare * newQty,
+      notes: editNotes
+    };
+
+    await onSave(updatedEntry);
+    setEditingId(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (onDelete && window.confirm("Are you sure you want to delete this sales record?")) {
+      await onDelete(id);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
@@ -154,20 +203,21 @@ export const Receivables: React.FC<ReceivablesProps> = ({ sales }) => {
             <thead className="bg-stone-50 text-stone-600 uppercase font-bold text-xs border-b border-stone-200">
               {viewMode === 'daily' ? (
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Order Name</th>
-                  <th className="px-4 py-3 text-right">Qty</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-right text-emerald-700">My Share</th>
-                  <th className="px-4 py-3 text-right text-indigo-700">Shero Share</th>
+                  <th className="px-4 py-3 font-bold text-stone-700">Date</th>
+                  <th className="px-4 py-3 font-bold text-stone-700">Order Name</th>
+                  <th className="px-4 py-3 text-right font-bold text-stone-700">Qty</th>
+                  <th className="px-4 py-3 text-right font-bold text-stone-700">Total</th>
+                  <th className="px-4 py-3 text-right font-bold text-emerald-800">My Share</th>
+                  <th className="px-4 py-3 text-right font-bold text-indigo-800">Shero Share</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-4 py-3">{viewMode === 'monthly' ? 'Month' : 'Week Range'}</th>
-                  <th className="px-4 py-3 text-right">Orders</th>
-                  <th className="px-4 py-3 text-right">Total Collected</th>
-                  <th className="px-4 py-3 text-right text-emerald-700">My Share</th>
-                  <th className="px-4 py-3 text-right text-indigo-700">Shero Share</th>
+                  <th className="px-4 py-3 font-bold text-stone-700">{viewMode === 'monthly' ? 'Month' : 'Week Range'}</th>
+                  <th className="px-4 py-3 text-right font-bold text-stone-700">Orders</th>
+                  <th className="px-4 py-3 text-right font-bold text-stone-700">Total Collected</th>
+                  <th className="px-4 py-3 text-right font-bold text-emerald-800">My Share</th>
+                  <th className="px-4 py-3 text-right font-bold text-indigo-800">Shero Share</th>
                 </tr>
               )}
             </thead>
@@ -176,34 +226,68 @@ export const Receivables: React.FC<ReceivablesProps> = ({ sales }) => {
                 // DAILY MODE: List individual orders
                 dailyList.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-stone-400">
+                    <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
                        No sales data recorded yet.
                     </td>
                   </tr>
                 ) : (
-                  dailyList.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-stone-50 transition-colors">
-                      <td className="px-4 py-4 font-bold text-stone-600 whitespace-nowrap">
-                         {new Date(entry.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
-                      </td>
-                      <td className="px-4 py-4 font-bold text-stone-800">
-                        {entry.itemName}
-                        {entry.notes && <span className="block text-[10px] font-normal text-stone-400 italic">{entry.notes}</span>}
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-stone-600">
-                        {entry.quantity}
-                      </td>
-                      <td className="px-4 py-4 text-right font-bold text-stone-900">
-                        {formatCurrency(entry.totalAmount)}
-                      </td>
-                      <td className="px-4 py-4 text-right font-bold text-emerald-700 bg-emerald-50/30">
-                        {formatCurrency(entry.totalMyShare)}
-                      </td>
-                      <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">
-                        {formatCurrency(entry.totalSheroShare)}
-                      </td>
-                    </tr>
-                  ))
+                  dailyList.map((entry) => {
+                    const isEditing = editingId === entry.id;
+                    return (
+                      <tr key={entry.id} className={`hover:bg-stone-50 transition-colors ${isEditing ? 'bg-orange-50' : ''}`}>
+                        <td className="px-4 py-4 font-bold text-stone-800 whitespace-nowrap">
+                           {new Date(entry.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
+                        </td>
+                        <td className="px-4 py-4 font-bold text-stone-900">
+                          {entry.itemName}
+                          {isEditing ? (
+                            <input 
+                              value={editNotes} 
+                              onChange={(e) => setEditNotes(e.target.value)} 
+                              className="w-full mt-1 p-1 border rounded text-xs font-normal"
+                              placeholder="Notes..."
+                            />
+                          ) : (
+                            entry.notes && <span className="block text-[10px] font-medium text-stone-600 italic">{entry.notes}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-right font-medium text-stone-800">
+                          {isEditing ? (
+                             <input 
+                               type="number" 
+                               value={editQty} 
+                               onChange={(e) => setEditQty(e.target.value)}
+                               className="w-16 p-1 border rounded text-right"
+                             />
+                          ) : (
+                             entry.quantity
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-right font-bold text-stone-900">
+                          {formatCurrency(isEditing ? (entry.unitPrice * (parseInt(editQty)||0)) : entry.totalAmount)}
+                        </td>
+                        <td className="px-4 py-4 text-right font-bold text-emerald-700 bg-emerald-50/30">
+                          {formatCurrency(isEditing ? (entry.unitMyShare * (parseInt(editQty)||0)) : entry.totalMyShare)}
+                        </td>
+                        <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">
+                          {formatCurrency(isEditing ? (entry.unitSheroShare * (parseInt(editQty)||0)) : entry.totalSheroShare)}
+                        </td>
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
+                          {isEditing ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => saveEdit(entry)} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200"><Save size={14}/></button>
+                              <button onClick={cancelEdit} className="p-1.5 bg-stone-100 text-stone-600 rounded hover:bg-stone-200"><X size={14}/></button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => initiateEdit(entry)} className="p-1.5 hover:bg-orange-100 text-stone-400 hover:text-orange-600 rounded transition-colors"><Edit2 size={14}/></button>
+                              <button onClick={() => handleDelete(entry.id)} className="p-1.5 hover:bg-rose-100 text-stone-400 hover:text-rose-600 rounded transition-colors"><Trash2 size={14}/></button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )
               ) : (
                 // AGGREGATE MODES (Weekly/Monthly)

@@ -9,7 +9,6 @@ import { Receivables } from './components/views/Receivables';
 import { Reports } from './components/views/Reports';
 import { AIInsights } from './components/views/AIInsights';
 import { CostCalculator } from './components/views/CostCalculator';
-import { Settings } from './components/views/Settings';
 import { MenuItem, SaleEntry, ExpenseEntry } from './types';
 import { supabaseService } from './services/supabaseService';
 
@@ -73,8 +72,6 @@ const App: React.FC = () => {
   // DATA PERSISTENCE HANDLERS
   // ------------------------------------------------------------------
   
-  // When local state changes, if NOT connected, save to LocalStorage.
-  // If connected, the save happened during the action (optimistic UI + async call)
   useEffect(() => {
     if (!isConnected && !loading) {
       localStorage.setItem('menuItems', JSON.stringify(menuItems));
@@ -89,12 +86,6 @@ const App: React.FC = () => {
   // ------------------------------------------------------------------
 
   const handleUpdateMenu = async (items: MenuItem[]) => {
-    // Determine what changed? Diffing is hard. 
-    // Simplified: We assume components call specific add/update/delete logic or we just sync all.
-    // For this simple app, we will rely on components calling specific service methods if connected, 
-    // AND updating the local state passed to them.
-    // However, MenuManager is built to use setMenuItems directly. 
-    // We will wrap the setter passed to children.
     setMenuItems(items);
   };
 
@@ -155,11 +146,11 @@ const App: React.FC = () => {
       case 'menu': return <MenuManager menuItems={menuItems} onSave={saveMenuItem} onDelete={deleteMenuItem} onBulkAdd={bulkAddMenuItems} />;
       case 'sales_entry': return <SalesEntry sales={sales} menuItems={menuItems} onSave={saveSale} onDelete={deleteSale} />;
       case 'expenses': return <Expenses expenses={expenses} onSave={saveExpense} onDelete={deleteExpense} />;
-      case 'receivables': return <Receivables sales={sales} />;
+      // Pass menuItems, onSave, onDelete to Receivables for CRUD
+      case 'receivables': return <Receivables sales={sales} menuItems={menuItems} onSave={saveSale} onDelete={deleteSale} />;
       case 'calculator': return <CostCalculator />;
       case 'reports': return <Reports sales={sales} expenses={expenses} />;
       case 'ai': return <AIInsights sales={sales} expenses={expenses} />;
-      case 'settings': return <Settings />;
       default: return <Dashboard sales={sales} expenses={expenses} />;
     }
   };
@@ -168,11 +159,32 @@ const App: React.FC = () => {
     <div className="flex min-h-screen bg-stone-50 font-sans text-stone-900">
       <Nav currentView={currentView} setView={setCurrentView} />
       
-      <main className="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto mb-16 md:mb-0">
-        <div className="max-w-6xl mx-auto">
-          {renderView()}
-        </div>
-      </main>
+      {/* Adjusted margin to account for collapsed sidebar (handled via CSS/JS mostly but added transition class on Nav, so here we use a safe margin for mobile or base desktop) */}
+      {/* We need to dynamically adjust margin based on collapse state if we want perfection, but simpler to just use a larger margin or flex. 
+          The Nav component uses 'fixed', so main needs margin. 
+          Let's assume default expanded for simplicity in CSS structure or use 'md:pl-20' / 'md:pl-64' if we passed state up.
+          To keep it simple without passing state up deeply: I will make the Nav position:sticky or similar, OR just rely on the 'md:ml-64' class being standard. 
+          Actually, since Nav manages its own state, the Main content won't know to expand. 
+          FIX: Let's remove the margin from Main and put the Nav and Main in a Flex Row container. */}
+      
+      {/* Since Nav is fixed in previous code, let's keep it fixed but we can't easily animate the main content width without lifting state. 
+          For now, I'll stick to standard margin. If the user collapses, there will be whitespace. 
+          To do it properly, I'll modify the layout structure below to use Flex instead of fixed positioning for the sidebar. */}
+
+      <div className="flex w-full">
+         {/* Nav is self-contained. I will modify Nav to NOT be fixed, but sticky or relative, OR accept a callback to notify parent. 
+             Actually, easiest way: The Nav component previously had 'fixed'. I will change Nav to be 'sticky' h-screen. */}
+         
+         <div className="flex-none z-50">
+           <Nav currentView={currentView} setView={setCurrentView} />
+         </div>
+
+         <main className="flex-1 p-4 md:p-8 overflow-y-auto mb-16 md:mb-0 w-full">
+            <div className="max-w-6xl mx-auto">
+              {renderView()}
+            </div>
+         </main>
+      </div>
     </div>
   );
 };

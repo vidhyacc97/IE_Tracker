@@ -123,30 +123,30 @@ export const Expenses: React.FC<ExpensesProps> = ({ expenses, onSave, onDelete }
             <table className="w-full text-sm text-left">
                <thead className="bg-stone-50 border-b">
                  <tr>
-                    <th className="px-4 py-3">{viewMode === 'daily' ? 'Date' : 'Period'}</th>
-                    <th className="px-4 py-3">Details</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3 font-bold text-stone-600">{viewMode === 'daily' ? 'Date' : 'Period'}</th>
+                    <th className="px-4 py-3 font-bold text-stone-600">Details</th>
+                    <th className="px-4 py-3 text-right font-bold text-stone-600">Amount</th>
                     <th className="px-4 py-3"></th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-stone-100">
                   {viewMode === 'daily' ? dailyList.map(e => (
                      <tr key={e.id} className="hover:bg-stone-50">
-                        <td className="px-4 py-3">{e.date}</td>
+                        <td className="px-4 py-3 font-medium text-stone-800">{e.date}</td>
                         <td className="px-4 py-3">
-                           <div className="font-bold">{e.category}</div>
-                           <div className="text-xs text-stone-400">{e.notes}</div>
+                           <div className="font-bold text-stone-900">{e.category}</div>
+                           <div className="text-xs text-stone-600 font-medium">{e.notes}</div>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-rose-700">{formatCurrency(e.amount)}</td>
                         <td className="px-4 py-3 text-right">
-                           <button onClick={() => handleEdit(e)} className="p-1 hover:text-orange-500"><Edit2 size={14}/></button>
-                           <button onClick={() => handleDelete(e.id)} className="p-1 hover:text-rose-500 ml-2"><Trash2 size={14}/></button>
+                           <button onClick={() => handleEdit(e)} className="p-1 text-stone-400 hover:text-orange-500"><Edit2 size={14}/></button>
+                           <button onClick={() => handleDelete(e.id)} className="p-1 text-stone-400 hover:text-rose-500 ml-2"><Trash2 size={14}/></button>
                         </td>
                      </tr>
                   )) : activeData.map((d: any) => (
                      <tr key={d.id}>
-                        <td className="px-4 py-3 font-bold">{d.label}</td>
-                        <td className="px-4 py-3">{d.count} transactions</td>
+                        <td className="px-4 py-3 font-bold text-stone-800">{d.label}</td>
+                        <td className="px-4 py-3 text-stone-600 font-medium">{d.count} transactions</td>
                         <td className="px-4 py-3 text-right font-bold text-rose-700">{formatCurrency(d.total)}</td>
                         <td></td>
                      </tr>

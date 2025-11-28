@@ -123,11 +123,11 @@ export const SalesEntry: React.FC<SalesEntryProps> = ({ sales, menuItems, onSave
              {displayedSales.map(sale => (
                <div key={sale.id} className="bg-white border p-4 rounded-xl flex justify-between items-center">
                   <div>
-                     <div className="font-bold text-lg">{sale.itemName} <span className="text-sm bg-stone-800 text-white px-2 rounded-full">x{sale.quantity}</span></div>
+                     <div className="font-bold text-lg text-stone-900">{sale.itemName} <span className="text-sm bg-stone-800 text-white px-2 rounded-full">x{sale.quantity}</span></div>
                      <div className="text-xs text-emerald-700 font-bold">My Share: {formatCurrency(sale.totalMyShare)}</div>
                   </div>
                   <div className="flex gap-2 items-center">
-                     <div className="font-bold text-lg mr-2">{formatCurrency(sale.totalAmount)}</div>
+                     <div className="font-bold text-lg mr-2 text-stone-900">{formatCurrency(sale.totalAmount)}</div>
                      <button onClick={() => handleEdit(sale)} className="p-2 bg-stone-50 rounded hover:text-orange-600"><Edit2 size={16}/></button>
                      <button onClick={() => handleDelete(sale.id)} className="p-2 bg-stone-50 rounded hover:text-rose-600"><Trash2 size={16}/></button>
                   </div>
