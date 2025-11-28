@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
 import { Database, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { supabaseService } from '../../services/supabaseService';
+import { SUPABASE_CREDENTIALS } from '../../constants';
 
 export const Settings: React.FC = () => {
   const [url, setUrl] = useState('');
@@ -11,13 +12,14 @@ export const Settings: React.FC = () => {
   const [testMsg, setTestMsg] = useState('');
   const [isError, setIsError] = useState(false);
   
-  // Check if Env Vars are active
+  // Check Sources
+  const hasHardcoded = !!(SUPABASE_CREDENTIALS.url && SUPABASE_CREDENTIALS.key);
   const hasEnvVars = !!(process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || process.env.VITE_SUPABASE_URL);
 
   useEffect(() => {
-    // Load current manual settings if any
+    // Load current manual settings if any (and if not overridden by hardcoded)
     const stored = localStorage.getItem('supabaseConfig');
-    if (stored) {
+    if (stored && !hasHardcoded) {
       const config = JSON.parse(stored);
       setUrl(config.url);
       setKey(config.key);
@@ -26,7 +28,7 @@ export const Settings: React.FC = () => {
     if (supabaseService.isConnected()) {
       setStatus('connected');
     }
-  }, []);
+  }, [hasHardcoded]);
 
   const runConnectionTest = async () => {
     setStatus('checking');
@@ -76,7 +78,15 @@ export const Settings: React.FC = () => {
         
         <Card title="Cloud Connection">
           <div className="space-y-4">
-            {hasEnvVars && (
+            
+            {hasHardcoded && (
+              <div className="bg-purple-50 text-purple-800 p-3 rounded-lg text-sm flex items-center gap-2">
+                 <InfoIcon /> 
+                 <span>Using hardcoded credentials from <strong>constants.ts</strong>.</span>
+              </div>
+            )}
+            
+            {!hasHardcoded && hasEnvVars && (
               <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm flex items-center gap-2">
                  <InfoIcon /> 
                  <span>Using credentials from <strong>.env</strong> file.</span>
@@ -105,37 +115,49 @@ export const Settings: React.FC = () => {
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-stone-500">Supabase URL</label>
-              <input 
-                value={url} onChange={e => setUrl(e.target.value)}
-                placeholder="https://xyz.supabase.co"
-                className="w-full p-2 border rounded-lg"
-                disabled={hasEnvVars && status === 'connected'} 
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-stone-500">Supabase Anon Key</label>
-              <input 
-                value={key} onChange={e => setKey(e.target.value)}
-                type="password"
-                placeholder="eyJh..."
-                className="w-full p-2 border rounded-lg"
-                disabled={hasEnvVars && status === 'connected'}
-              />
-            </div>
+            {!hasHardcoded && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-stone-500">Supabase URL</label>
+                  <input 
+                    value={url} onChange={e => setUrl(e.target.value)}
+                    placeholder="https://xyz.supabase.co"
+                    className="w-full p-2 border rounded-lg"
+                    disabled={hasEnvVars && status === 'connected'} 
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-stone-500">Supabase Anon Key</label>
+                  <input 
+                    value={key} onChange={e => setKey(e.target.value)}
+                    type="password"
+                    placeholder="eyJh..."
+                    className="w-full p-2 border rounded-lg"
+                    disabled={hasEnvVars && status === 'connected'}
+                  />
+                </div>
 
-            <div className="flex gap-3 pt-2">
-              <button onClick={handleConnect} className="flex-1 bg-stone-900 text-white py-2 rounded-lg font-bold hover:bg-black">
-                {status === 'connected' && !hasEnvVars ? 'Update & Test' : 'Connect & Test'}
-              </button>
-              {status === 'connected' && !hasEnvVars && (
-                <button onClick={handleDisconnect} className="px-4 border border-rose-200 text-rose-600 rounded-lg font-bold hover:bg-rose-50">
-                  Disconnect
+                <div className="flex gap-3 pt-2">
+                  <button onClick={handleConnect} className="flex-1 bg-stone-900 text-white py-2 rounded-lg font-bold hover:bg-black">
+                    {status === 'connected' && !hasEnvVars ? 'Update & Test' : 'Connect & Test'}
+                  </button>
+                  {status === 'connected' && !hasEnvVars && (
+                    <button onClick={handleDisconnect} className="px-4 border border-rose-200 text-rose-600 rounded-lg font-bold hover:bg-rose-50">
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {hasHardcoded && (
+              <div className="pt-2">
+                <button onClick={runConnectionTest} className="w-full bg-stone-900 text-white py-2 rounded-lg font-bold hover:bg-black">
+                  Test Hardcoded Connection
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </Card>
 

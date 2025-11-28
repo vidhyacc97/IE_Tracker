@@ -1,26 +1,32 @@
 
 import { MenuItem, SaleEntry, ExpenseEntry, SupabaseConfig } from '../types';
+import { SUPABASE_CREDENTIALS } from '../constants';
 
 let supabaseClient: any = null;
 
 export const supabaseService = {
-  // Initialize: Check Env Vars -> LocalStorage
+  // Initialize: Check Constants -> Env Vars -> LocalStorage
   init: () => {
-    // 1. Try Environment Variables
+    // 1. Try Hardcoded Constants (Best for persistent deployment)
+    const constUrl = SUPABASE_CREDENTIALS.url;
+    const constKey = SUPABASE_CREDENTIALS.key;
+
+    // 2. Try Environment Variables
     const envUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
     const envKey = process.env.SUPABASE_KEY || process.env.REACT_APP_SUPABASE_KEY || process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
 
-    // 2. Try Local Storage Settings
+    // 3. Try Local Storage Settings
     const storedConfigStr = localStorage.getItem('supabaseConfig');
     const storedConfig = storedConfigStr ? JSON.parse(storedConfigStr) : null;
 
-    const url = envUrl || storedConfig?.url;
-    const key = envKey || storedConfig?.key;
+    // Priority: Constants > Env > LocalStorage
+    const url = (constUrl && constUrl.length > 5) ? constUrl : (envUrl || storedConfig?.url);
+    const key = (constKey && constKey.length > 10) ? constKey : (envKey || storedConfig?.key);
 
     if (url && key && window.supabase) {
       try {
         supabaseClient = window.supabase.createClient(url, key);
-        console.log("Supabase Client Initialized");
+        console.log("Supabase Client Initialized via " + (constUrl ? "Constants" : envUrl ? "Env" : "Storage"));
         return true;
       } catch (e) {
         console.error("Failed to init Supabase", e);
@@ -44,6 +50,10 @@ export const supabaseService = {
       return { success: true, message: "Connection Successful!" };
     } catch (error: any) {
       console.error("Connection Test Failed:", error);
+      // If table doesn't exist, it's still a successful connection, just need schema
+      if (error.message?.includes('does not exist')) {
+         return { success: false, message: "Connected! But tables are missing. Please run the SQL below." };
+      }
       return { success: false, message: error.message || "Unknown connection error" };
     }
   },
